@@ -1,32 +1,33 @@
 #!/usr/bin/env node
 
 /*
-Automatically grade files for the presence of specified HTML tags/attributes.
-Uses commander.js and cheerio. Teaches command line application development
-and basic DOM parsing.
+   Automatically grade files for the presence of specified HTML tags/attributes.
+   Uses commander.js and cheerio. Teaches command line application development
+   and basic DOM parsing.
 
-References:
+   References:
 
- + cheerio
+   + cheerio
    - https://github.com/MatthewMueller/cheerio
    - http://encosia.com/cheerio-faster-windows-friendly-alternative-jsdom/
    - http://maxogden.com/scraping-with-node.html
 
- + commander.js
+   + commander.js
    - https://github.com/visionmedia/commander.js
    - http://tjholowaychuk.com/post/9103188408/commander-js-nodejs-command-line-interfaces-made-easy
 
- + JSON
+   + JSON
    - http://en.wikipedia.org/wiki/JSON
    - https://developer.mozilla.org/en-US/docs/JSON
    - https://developer.mozilla.org/en-US/docs/JSON#JSON_in_Firefox_2
-*/
+   */
 
 var fs = require('fs');
 var program = require('commander');
 var cheerio = require('cheerio');
 var HTMLFILE_DEFAULT = "index.html";
 var CHECKSFILE_DEFAULT = "checks.json";
+var URL_DEFAULT = "undefined";
 
 var assertFileExists = function(infile) {
     var instr = infile.toString();
@@ -66,10 +67,40 @@ if(require.main == module) {
     program
         .option('-c, --checks <check_file>', 'Path to checks.json', clone(assertFileExists), CHECKSFILE_DEFAULT)
         .option('-f, --file <html_file>', 'Path to index.html', clone(assertFileExists), HTMLFILE_DEFAULT)
+        .option('--url <url>', 'URL')
         .parse(process.argv);
-    var checkJson = checkHtmlFile(program.file, program.checks);
-    var outJson = JSON.stringify(checkJson, null, 4);
-    console.log(outJson);
+
+    if (typeof program.url != 'undefined')
+    {
+        // console.log("URL: " + program.url);
+        var sys = require('util'),
+            rest = require('restler');
+
+        var checkJson = {};
+        rest.get(program.url).on('complete', function(result) {
+            if (result instanceof Error) {
+                console.log('Error: ' + result.message);
+            } else {
+                // sys.puts(result);
+                var checks = loadChecks(program.checks).sort();
+                $ = cheerio.load(result);
+
+                for(var ii in checks) {
+                    var present = $(checks[ii]).length > 0;
+                    checkJson[checks[ii]] = present;
+                }
+                //console.log(checkJson);
+                var outJson = JSON.stringify(checkJson, null, 4);
+                console.log(outJson);
+            }
+        });
+    }
+    else
+    {
+        var checkJson = checkHtmlFile(program.file, program.checks);
+        var outJson = JSON.stringify(checkJson, null, 4);
+        console.log(outJson);
+    }
 } else {
     exports.checkHtmlFile = checkHtmlFile;
 }
